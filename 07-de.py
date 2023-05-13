@@ -28,30 +28,16 @@ def sr():
         t.StructField("numVotes",t.IntegerType(),True)])
     df_t=spark_s.read.options(delimiter='\t').csv(path_t,header=True,schema=sch_t)
     df_p=spark_s.read.options(delimiter='\t').csv(path_p,header=True,schema=sch_p)
-    df_list=[]
-    flag=True
-    hat=2030
-    shoe=2019
-    while(flag):
-        df_top=df_t.where((f.col("startYear")>shoe) & (f.col("startYear")<hat))
-        if(df_top.isEmpty()):
-            flag=False
-            break
-        df_top=df_top.join(df_p,on="tconst",how='left')
-        df_top=df_top.orderBy("averageRating",ascending=False).limit(10).select("startYear","originalTitle","averageRating")
-        df_list.append(df_top)
-        hat=hat-10
-        shoe=shoe-10
+    df_t=df_t.select("tconst","startYear","originalTitle")
+    df_p=df_p.select("tconst","averageRating")
+    df_u=df_t.join(df_p,on="tconst",how='left')
+    df_u=df_u.withColumn("decade",f.floor(f.col("startYear")/10))
+    w=Window.partitionBy("decade").orderBy(f.col("averageRating").desc())
+    df_u=df_u.withColumn("tconst",f.row_number().over(w))
+    df_u=df_u.where(f.col("tconst")<11).select("startYear","originalTitle","averageRating")
+    df_u.show(100)
     po="D:\\IPAM_ProfIT\\project\\res\\sr"
-    df_res=df_list[0]
-    if (len(df_list)>1):
-        for horse in df_list[1:]:
-            df_res=df_res.union(horse)
-    df_res.show(300)
-    df_res.write.mode("overwrite").csv(po,header=True)
-##    for i in df_list:
-##        i.show()
-##        i.write.mode("overwrite").csv(po,header=True)
+    df_u.write.mode("overwrite").csv(po,header=True)
 
 if __name__ == "__main__":
     sr()
